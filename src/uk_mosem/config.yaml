@@ -1,0 +1,269 @@
+
+PATHC : "runs/"
+PATH_DEF_RUNS: "default_runs.csv"
+
+fp:
+
+    PATHR : "../raw_data/"
+    PATHP : "../processed_data/"
+    PATHF : "../input_data/"
+    PATHO : "../results/"
+    
+    PATH_PPI : "others/ppi.csv"
+    PATH_GDP_DEF : "others/GDP_deflator.csv"
+    PATH_EX_RATE_EUR : "others/GBP_EUR_exrate.csv"
+    PATH_EX_RATE_USD : "others/GBP_USD_exrate.csv"
+    PATH_YEARS_MAP : "years_map"
+    PATH_BUILT_MS : "built_milestone"
+    PATH_RUN_MS : "run_milestone"
+    PATH_RESPROCESSED_MS : "results_processed_milestone"
+    PATH_RESANALYSED_MS : "results_analysed_milestone"
+    PATH_GEO_LOOKUPS : "geography_lookups/PCD_OA_LSOA_MSOA_LAD_Lookup_UK_2022.csv"
+    PATH_GEO_LOOKUPS_ITL : "geography_lookups/LAD21_LAU121_ITL321_ITL221_ITL121_lookup_UK_2021.xlsx"
+    PATH_WARD_LOOKUP_11 : "geography_lookups/WA_LAD_Lookup_EW_2011-22.csv"
+    PATH_WARD_LOOKUP_16 : "geography_lookups/WA_LAD_Lookup_UK_2016.csv"
+    PATH_LSOA_LOOKUP : "geography_lookups/LSOA2011_LSOA2021_EW.csv"
+    PATH_GEO_LOOKUPS_RGN : "geography_lookups/LAD_RGN_Lookup_E_2021.csv"
+    
+    PATH_SET_ND_PROP : "dataset/ND_properties.csv"
+    PATH_SET_DW_INT: "dataset/DW_demand_intensities.csv"
+    PATH_SET_EFF: "dataset/efficiencies.csv"
+    PATH_SET_SETS: "dataset/sets.csv"
+    PATH_SET_ND_INT: "dataset/ND_demand_intensities.csv"
+    PATH_SET_BD_EFF: "dataset/BD_efficiency_measures.csv"
+    PATH_SET_LT: "dataset/lifetimes.csv"
+    PATH_SET_DH_CL: "dataset/DH_classes.csv"
+    PATH_SET_DIST_NET: "dataset/dist_networks.csv"
+    PATH_SET_HSOURCES: "dataset/heat_sources.csv"
+    PATH_SET_HTECH: "dataset/heat_techs.csv"
+    PATH_SET_COSTS: "dataset/costs.csv"
+    PATH_SET_SUPPLY: "dataset/supply.csv"
+    PATH_SET_CAP_CON: "dataset/capacity_constraints.csv"
+    PATH_SET_ACT_CON: "dataset/activity_constraints.csv"
+    PATH_SET_EM: "dataset/emissions.csv"
+    PATH_SET_RESERVEM: "dataset/reserve_margin.csv"
+    PATH_SET_DISC: "dataset/discountrate.csv"
+    PATH_SET_FTPM: "dataset/fratoo_params.csv"   
+        
+    PATH_HH_PROJ : "household_projections"
+    PATH_HH_NUM : "household_number"
+    
+    PATHS_DW_STOCK_EW : ["dwelling_stock/dwelling_stock_type_EW_2015.csv",
+                         "dwelling_stock/dwelling_stock_type_EW_2016.csv",
+                         "dwelling_stock/dwelling_stock_type_EW_2017.csv",
+                         "dwelling_stock/dwelling_stock_type_EW_2018.csv",
+                         "dwelling_stock/dwelling_stock_type_EW_2019.csv",
+                         "dwelling_stock/dwelling_stock_type_EW_2020.csv",
+                         "dwelling_stock/dwelling_stock_type_EW_2021.csv",
+                         "dwelling_stock/dwelling_stock_type_EW_2022.csv"]
+    PATHS_DW_STOCK_S : ["dwelling_stock/dwelling_stock_type_S_2015.csv",
+                        "dwelling_stock/dwelling_stock_type_S_2016.csv",
+                        "dwelling_stock/dwelling_stock_type_S_2017.csv"]
+    PATHS_DW_STOCK_S_TOTALS : "dwelling_stock/dwelling_stock_total_S_2005-2022.csv"
+    PATH_DW_STOCK_D_S : "dwelling_stock/dwelling_stock_demolitions_S_1990-2021.xls"
+    PATH_DW_STOCK_D_E : "dwelling_stock/dwelling_stock_changes_E_2012-2021.ods"
+    PATH_DW_STOCK_D_W : "dwelling_stock/dwelling_stock_demolitions_W_1996-2021.csv"
+    PATH_DW_HH_P_S : "dwelling_stock/HH_projections_S.csv"
+    PATH_DW_HH_P_W : "dwelling_stock/HH_projections_W.csv"
+    PATH_DW_HH_P_E : "dwelling_stock/HH_projections_E.xlsx"
+    PATH_DW_STOCK_EPC_S : "dwelling_stock/DW_EPC_S.zip"
+    PATH_DW_STOCK_EPC_EW : "dwelling_stock/DW_EPC_EW.zip"
+    PATH_DW_MH_LU : "dwelling_stock/EPC_mainheat_lookup.csv"
+    PATH_DW_HW_LU : "dwelling_stock/EPC_hotwater_lookup.csv"
+    PATH_DW_SH_LU : "dwelling_stock/EPC_secondheat_lookup.csv"
+    PATH_DW_WA_LU : "dwelling_stock/EPC_walls_lookup.csv"
+    PATH_DW_FL_LU : "dwelling_stock/EPC_floor_lookup.csv"
+    PATH_DW_WI_LU : "dwelling_stock/EPC_windows_lookup.csv"
+    PATH_DW_RO_LU : "dwelling_stock/EPC_roof_lookup.csv"
+    PATH_DW_C_HE : "dwelling_stock/census_2021_heating.csv"
+    PATH_DW_EHS : "dwelling_stock/EHS_2022-23_chapter_1_profile.ods"
+
+    
+    PATH_DW_STOCK_EX : "stock_properties_existing"
+    PATH_DW_STOCK_NB : "stock_properties_newbuilt"
+    PATH_DW_STOCK_HDE : "stock_properties_heat_details"
+    PATH_DW_STOCK_EDE : "stock_properties_eff_details"
+    PATH_DW_STOCK_SEC : "stock_properties_socioeconomic_details"
+    PATH_DW_STOCK_CON : "stock_properties_constraints_details"
+    PATH_DW_STOCK_DH : "stock_properties_dh_details"
+    PATH_DW_STOCK_EPC: "stock_properties_rating"
+    
+    PATH_ND_STOCK_DEC_EW : "ND_stock/DEC_EW.zip"
+    PATH_ND_STOCK_EPC_EW : "ND_stock/ND_EPC_EW.zip"
+    PATH_ND_STOCK_EPC_S : "ND_stock/ND_EPC_S.zip"
+    PATH_ND_STOCK_NDR : "ND_stock/NDR_stock_FS.zip"
+    PATH_ND_STOCK_BEES_APP : "ND_stock/BEES_appendix_tables.xlsx"
+    PATH_ECUK_ENDUSE : "others/ECUK_2023_End_Use_tables.xlsx"
+    PATH_ND_PT_LU : "ND_stock/EPC_property_type_lookup.csv"
+    PATH_ND_STOCK_HDE : "ND_stock_heat_detail"
+    PATH_ND_STOCK_EX : "ND_stock_properties_existing"
+    PATH_ND_STOCK_NB : "ND_stock_properties_newbuilt"
+    
+    
+    PATH_NEED_CON_EW : "consumption_intensity/NEED_D_consumption_EW_2019.xlsx"
+    PATH_NEED_CON_S : "consumption_intensity/NEED_D_consumption_S_2019.xlsx"
+    PATH_NEED_CONR_EW : "consumption_intensity/NEED_D_consumption_EW_record_2024.csv"
+    PATH_DW_CON_G : "gas_el_consumption/gas_domestic_LSOA_stacked_2010-21.csv"
+    PATH_DW_CON_E : "gas_el_consumption/elec_domestic_LSOA_stacked_2010-21.csv"
+    PATH_DW_INT_SH : "dom_demand_intensities_SH"
+    PATH_DW_INT_HW : "dom_demand_intensities_HW"
+    PATH_DW_INT_SH_NB : "dom_demand_intensities_SH_NB"
+    PATH_DW_INT_NHE : "dom_demand_intensities_NHE"
+    PATH_DW_INT_NHG : "dom_demand_intensities_NHG"
+
+    PATH_ND_CON_G : "gas_el_consumption/gas_non_domestic_MSOA_stacked_2010-21.csv"
+    PATH_ND_CON_E : "gas_el_consumption/elec_non_domestic_MSOA_stacked_2010-21.csv"
+    PATH_ND_STOCK_BEES_OVA : "ND_stock/BEES_overarching_data.xlsx"
+    PATH_ND_INT_SH : "nd_demand_intensities_SH"
+    PATH_ND_INT_HW : "nd_demand_intensities_HW"
+    PATH_ND_INT_SH_NB : "nd_demand_intensities_SH_NB"
+    PATH_ND_INT_NHE : "nd_demand_intensities_NHE"
+    PATH_ND_INT_NHG : "nd_demand_intensities_NHG"  
+
+    PATH_DW_ANN_DEM_SH : "dw_annual_demand_SH"
+    PATH_DW_ANN_DEM_HW : "dw_annual_demand_HW"
+    PATH_DW_ANN_DEM_SH_NB : "dw_annual_demand_SH_NB"
+    PATH_DW_ANN_DEM_NHE : "dw_annual_demand_NHE"
+    PATH_DW_ANN_DEM_NHG : "dw_annual_demand_NHG"  
+    PATH_ND_ANN_DEM_SH : "nd_annual_demand_SH"
+    PATH_ND_ANN_DEM_HW : "nd_annual_demand_HW"
+    PATH_ND_ANN_DEM_SH_NB : "nd_annual_demand_SH_NB"
+    PATH_ND_ANN_DEM_NHE : "nd_annual_demand_NHE"
+    PATH_ND_ANN_DEM_NHG : "nd_annual_demand_NHG"  
+    
+    PATH_ERA5 : "climate_data/ERA5_GB_1999.nc"
+    PATH_CLIMATE_DIR : "climate_data/UKCP/"
+    PATH_LAD_BOUNDS : "shapefiles/LADs/LAD_MAY_2023_UK_BGC_V2.shp"
+    PATH_CTRY_BOUNDS : "shapefiles/CTRY/CTRY_DEC_2022_GB_BGC.shp"
+    PATH_HEX_MAP: "shapefiles/LAD_hexmap/uk-local-authority-districts-2023.hexjson"
+    PATH_OFFW_S_BOUNDS : "shapefiles/offshore/offshore_wind_S/Offshore_Wind__Crown_Estate_Scotland_.shp"
+    PATH_OFFW_EWNI_BOUNDS : "shapefiles/offshore/site_agreements_EWNI/WindSiteAgreements_EnglandWalesAndNI_TheCrownEstate.shp"
+    PATH_RA_TIMESERIES : "ra_timeseries"
+    PATH_TEMP : "temp_timeseries"
+
+
+    PATH_DEM_TSERIES_SH : "demand_timeseries_SH"
+    PATH_DEM_TSERIES_HW : "demand_timeseries_HW"
+    PATH_DEM_TSERIES_SHW : "demand_timeseries_SHW"
+    PATH_DEM_TSERIES_NHG : "demand_timeseries_NHG"
+    PATH_DEM_TSERIES_NHE : "demand_timeseries_NHE"
+
+    PATH_TPERIODS_SH : "typicalperiods_SH"
+    PATH_TPERIODS_HW : "typicalperiods_HW"
+    PATH_TPERIODS_SHW : "typicalperiods_SHW"
+    PATH_TPERIODS_NHE : "typicalperiods_NHE"
+    PATH_TPERIODS_NHG : "typicalperiods_NHG"
+    PATH_TPERIODS_SUPPLY : "typicalperiods_supply"
+    PATH_TPERIODS_LEN : "typicalperiods_length"
+
+    PATH_DW_FS_EW : "dwelling_stock/dwelling_stock_floor_space_EW.csv"
+    PATH_ECUK : "dwelling_stock/energy_UK_supp_tables.xlsx"
+    PATH_DW_PEAKD : "heat_peak_dwelling"
+    PATH_PEAKC_LSOA : "heat_peak_lsoas"
+
+    PATH_LAND_COVER : "land_data/CORINE/data/clc2018_uk.shp"
+    PATH_BM_POTENTIAL : "potentials/ENSPRESO_biomass.xlsx"
+    PATH_LSUPPLY_COST : "potentials_cost"
+    PATH_POTENTIAL_CON : "potentials_constraints"
+    
+    
+    
+    PATH_RIVER_MAP : "heat_sources/oprvrs_essh_gb/data/WatercourseLink.shp"
+    PATH_RIVER_FLOWS : "heat_sources/Q-cq_hadgem_rcp4p5_2041-01-31_to_2060-12-31.nc"
+    PATH_IND_EH : "heat_sources/industrial_excess_heat/data/Industrial_Database.csv"
+    PATH_HEAT_POTS : "heat_source_potentials"
+    
+
+    PATH_BUILDING_EFF : "others/building_efficiency_improvements.xlsx"
+    PATH_ND_BUILDING_EFF : "others/nd_building_efficiency_improvements.xlsx"
+    PATH_DW_BUILDING_NUM : "others/Element Energy - 2020 - Development of trajectories for residential heat d.pdf"
+    PATH_BUILDING_MEASURES_COST: "building_measures_cost"
+    PATH_BUILDING_MEASURES_CON : "building_measures_constraint"
+    PATH_BUILDING_MEASURES_LT : "building_measures_lifetime"
+    PATH_BUILDING_MEASURES_DC : "building_measures_depcon"
+    
+    PATH_CENSUS_CH : "census_heating/census_2011_central_heating.csv"
+    PATH_RES_CAPS_HT : "residual_caps_heat_tech"
+    PATH_RES_CAPS_HT_F : "residual_caps_heat_tech_frac"
+    
+
+    
+    PATH_SH_LSOAS : "shapefiles/LSOAs/infuse_lsoa_lyr_2011_clipped.shp"
+    PATH_SH_ROADS : "shapefiles/openroads/data/oproad_gb.gpkg"
+    PATH_ROAD_LENGTHS : "lsoa_road_lengths"
+    
+    PATH_DEM_DENSITY : "demand_density"
+    
+    PATH_SUBLOCAL_AGG : "lsoa_aggregation"
+    
+    PATH_OFFGAS : "off_gas_grid/Non-gas_LSOA_dataset.xlsx"
+    
+    PATH_LOCAL_COST : "local_cost"
+    PATH_LOCAL_EFF :  "local_efficiencies"
+    PATH_LOCAL_CON :  "local_constraints"
+    PATH_LOCAL_CAPF :  "local_cap_factors"
+    PATH_LOCAL_RES_CAPS : "residual_caps_tra_dis"
+    PATH_DHGEN_RES_CAPS: "residual_caps_dh_gen"
+    
+    PATH_SUPPLY_EL : "power_sector/GC20_Key_Data_and_Assumption.xlsx"
+    PATH_SUPPLY_EL_RESC : "power_sector/residual_caps_DUKES.xlsx"
+    PATH_SUPPLY_EL_RESCR : "power_sector/Renewable_electricity_by_local_authority_2014-2021_Nov22update.xlsx"
+    PATH_SUPPLY_H2 : "power_sector/Hydrogen_Production_Cost_2021_Annex.xlsx"
+    PATH_SUPPLY_POT : "potentials/possibility-for-electricity-autarky/municipal/technical-social-potential/capacities.csv"
+    PATH_SUPPLY_PRICES : "others/FES_data-workbook_2022_V006.xlsx"
+    PATH_SUPPLY_FPRICES : "others/fuel_prices.xlsx"
+    PATH_SUPPLY_COST : "supply_cost"
+    PATH_SUPPLY_EMF : "supply_emission_factors"
+    PATH_SUPPLY_EFF : "supply_efficiencies"
+    PATH_SUPPLY_AF : "supply_avail_factors"
+    PATH_SUPPLY_LT : "supply_lifetimes"
+    PATH_SUPPLY_CAPFAC : "supply_capacity_factors"
+    PATH_SUPPLY_RESCAP : "supply_residual_capacity"
+    PATH_SUPPLY_CAPCON : "supply_capacity_constraint"
+    PATH_SUPPLY_ACTCON : "supply_activity_constraint"
+    PATH_SUPPLY_CAPFRAC : "supply_capacity_fraction"
+    PATH_SUPPLY_STORAGE : "supply_storage"
+    PATH_SUPPLY_HURDLE : "supply_hurdle"
+    
+    PATH_DW_HHP_P_S : "dwelling_stock/HH_projections_pop_S.csv"
+    PATH_DW_HHP_P_W : "dwelling_stock/HH_projections_pop_W.csv"
+    
+    PATH_CONSERV_AREAS_E : "tech_constraints/conservation_areas/England/20220405_Conservation_Areas_INSPIRE_Dataset.shp"
+    PATH_CONSERV_AREAS_W : "tech_constraints/conservation_areas/Wales/conservation_areas.shp"
+    PATH_CONSERV_AREAS_S : "tech_constraints/conservation_areas/Scotland/Conservation_Areas.shp"
+    
+    
+    PATH_LISTED_BUILD_E : "tech_constraints/listed_buildings/England/ListedBuildings_10Jan2023.shp"
+    PATH_LISTED_BUILD_W : "tech_constraints/listed_buildings/Wales/Cadw_ListedBuildings.shp"
+    PATH_LISTED_BUILD_S : "tech_constraints/listed_buildings/Scotland/Listed_Buildings.shp"
+    PATH_BUILD_MAP : "tech_constraints/buildings/osopenuprn_202211.gpkg"
+    PATH_CONSERV_AREAS : "conservation_areas"
+
+    
+    PATH_RUC: "tech_constraints/RUC/RUC.csv"
+    PATH_HEAT_TECH_CON : "heat_tech_constraints"
+    PATH_HEAT_TECH_INVCON : "heat_tech_inv_constraints"
+    PATH_HEAT_TECH_UDC_TAG : "heat_tech_udc_tag"
+    PATH_HEAT_TECH_UDC_TAGTECH : "heat_tech_udc_tagtech"
+    PATH_HEAT_TECH_UDC_INVCON : "heat_tech_udc_invcon"
+    PATH_LOC_GOV_PL : "local_gov/promises.csv"
+    PATH_LOC_GOV_PA : "local_gov/scorecard_data.xlsx"
+    PATH_LOC_GOV_LAC : "local_gov/uk_local_authorities_current.csv"
+    PATH_LOC_GOV_EM : "local_gov_em_constraints"
+    PATH_LOC_GOV_INVCON : "local_gov_inv_constraints"
+    PATH_LOCAL_PLEDGES: "local_pledges"
+    
+    PATH_AGG_LOCAL_PLEDGES: "others/agg_local_pledges.csv"
+    
+    PATH_PP_COL_PAL : "postprocessing/colour_palette.csv"
+    PATH_PP_COL_ALL : "postprocessing/colour_allocation.csv"
+    PATH_PP_NAMING : "postprocessing/naming.csv"
+    
+    PATH_EC_GDHI : "economic/GDHI/"
+    PATH_EC_GHHI_ADD : "economic/experimentalabisoccupiedaddresstaxyearending2018.xlsx"
+    PATH_EC_GHHI_TEN : "economic/2017-18_Section_1_Households_Annex_Tables.xlsx"
+    PATH_EC_PCAP : "economic/Annex_9_levelised_cap_levels_v1.2.xlsx"
+    
+    PATH_EC_GHHI_DIST : "GHHI"
+    PATH_EC_GHHI_DIST_BR : "GHHI_brackets"
+    PATH_EC_GHHI_DIST_PERC : "GHHI_perc"

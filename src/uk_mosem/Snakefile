@@ -1,0 +1,1261 @@
+
+"""
+Snakemake file for running UK-MOSEM
+
+
+Copyright (C) 2025 Leonhard Hofbauer, licensed under a MIT license
+"""
+
+
+# FIXME: Potentially improve file path/etc. organisation
+# FIXME: include utils.py as input to rules where it is used
+
+
+
+from snakemake.utils import Paramspace
+from mpi4py import MPI
+import itertools
+import pandas as pd
+
+
+configfile: "config.yaml"
+
+if "runs" in config:
+    r = config["runs"]
+else:
+    r = config["PATH_DEF_RUNS"]
+    
+
+
+# load run params
+df_params = pd.read_csv(config["PATHC"]+r)
+
+df_params = df_params.dropna(how="all")
+#converters={"Col3": lambda x: x.strip("[]").replace("'","").split(", ")}
+df_params = df_params.reindex(sorted(df_params.columns), axis=1)
+
+# filter out inactive runs
+df_params = df_params.loc[df_params["active"],
+                            [c for c in df_params.columns if c != "active"]]
+
+df_params_wc = df_params.loc[df_params["combinations"]=="FALSE"]
+df_params_c = df_params.loc[df_params["combinations"]!="FALSE"]
+
+# arrange combinations if required
+if not df_params_c.empty:
+    lev = df_params_c.loc[df_params_c["combinations"]=="ELEMENT",
+                        "name"].str.split("-",expand=True)[0].unique()
+    c = list()
+    for l in lev:
+        c.append(df_params_c.loc[df_params["name"].str.contains(l),"name"].to_list())
+    comb = ["_".join(a) for a in itertools.product(*c)]
+    
+    # remove combinations that are not feasible
+    rem = df_params_c.loc[df_params_c["uncombinable"]!="-",["name","uncombinable"]]
+    rem["uncombinable"] = rem["uncombinable"].str.split(",")
+    rem = rem.set_index("name")["uncombinable"].to_dict()
+    
+    com = [c for c in comb]
+    for c in comb:
+        for k,v in rem.items():
+            if k in c and any([e in c for e in v]) and (c in com):
+                com.remove(c)
+    comb = com        
+    
+    # rearrange for processing
+    df_params_c = df_params_c.set_index("name")
+    df_params_c = df_params_c.fillna("")
+    df_params_c = df_params_c.astype(str)
+    # process combinations
+    for co in comb:
+        df_params_c.loc[co,:] = df_params_c.loc["base",:]
+        for el in co.split("_"):
+            df_params_c.loc[co,:] = df_params_c.loc[co,:].add(df_params_c.loc[el,:],
+                                                        fill_value="")
+        df_params_c.loc[co,:] = df_params_c.loc[co,:].replace({"":"-"})
+    # remove irrelevant rows
+    df_params_c = df_params_c.loc[comb,:]                                                   
+
+    # remove leading |
+    df_params_c = df_params_c.apply(lambda x: x.str.strip("|"))
+
+    df_params_c = df_params_c.reset_index()
+    df_params_c = df_params_c.reindex(sorted(df_params_c.columns), axis=1)  
+     
+    df_params = pd.concat([df_params_wc,df_params_c])
+
+# rearrange
+df_params = df_params.drop(["combinations","uncombinable"],axis=1)
+# recast relevant columns as int
+for c in ["run_mem","run_processes","run_time"]:
+    df_params.loc[:,c] = pd.to_numeric(df_params.loc[:,c],
+                                        downcast='integer',
+                                        errors='coerce')
+
+
+ps = Paramspace(df_params)
+ps_ = Paramspace(df_params,filename_params=list(df_params.columns))
+
+
+def get_path(directory,fpath,bfn=False):
+    if directory=="PATHR":
+        return config["fp"][directory]+config["fp"][fpath]
+    elif not bfn:
+        if len(rp[fpath.lower()])>0:
+            return (config["fp"][directory]
+                    +f'{ps[sorted(rp[fpath.lower()])].wildcard_pattern}/'
+                    +config["fp"][fpath]+'.csv')
+        else:
+            return (config["fp"][directory]
+                    +config["fp"][fpath]+'.csv')    
+    else:
+        return (config["fp"][directory]
+                +f'{ps_[sorted(rp[fpath.lower()])].wildcard_pattern}'
+                +config["fp"][fpath]+'.csv')
+
+ 
+rp = dict()
+
+rule all:
+    input:
+        # this just picks one file 'run milestone' file
+        # FIXME: change so that there is a single file and not long dir?
+        sf=expand(config["fp"]["PATHO"]
+                +"{params}"
+                +config["fp"]["PATH_RESPROCESSED_MS"]+".csv",
+                params=ps_[sorted(set(df_params.columns))].instance_patterns)
+    threads: 1
+    resources:
+        mem_mb=1024,
+        runtime=5
+        
+         
+
+
+rp["path_hh_proj"] = {}
+rp["path_hh_num"] = {}
+rule calc_hh_projections:
+    input:
+        "calc_hh_projections.py",
+        path_dw_hh_p_s=get_path("PATHR","PATH_DW_HH_P_S"),
+        path_dw_hh_p_w=get_path("PATHR","PATH_DW_HH_P_W"),
+        path_dw_hh_p_e=get_path("PATHR","PATH_DW_HH_P_E")
+
+    output:
+        path_hh_proj=get_path("PATHP","PATH_HH_PROJ"),
+        path_hh_num=get_path("PATHP","PATH_HH_NUM")
+    params:
+        dic = ps[rp["path_hh_proj"]].instance
+    threads: 1
+    resources:
+        mem_mb=500,
+        runtime=5
+    script:
+        "calc_hh_projections.py" 
+
+
+rp["path_ec_ghhi_dist"]= {*["scen_hh_disagg"]}
+rp["path_ec_ghhi_dist_br"]= {*["scen_hh_disagg"]}
+rp["path_ec_ghhi_dist_perc"]= {*["scen_hh_disagg"]}
+
+rule calc_income_dist:
+    input:
+        "calc_income_dist.py",
+        path_ec_ghhi_add = get_path("PATHR","PATH_EC_GHHI_ADD")
+        
+    output:
+        path_ec_ghhi_dist = get_path("PATHP","PATH_EC_GHHI_DIST"),
+        path_ec_ghhi_dist_perc = get_path("PATHP","PATH_EC_GHHI_DIST_PERC")
+     
+    params:
+        dic = ps[rp["path_ec_ghhi_dist"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*8,
+        runtime=90
+          
+    script:
+        "calc_income_dist.py" 
+
+
+rp["path_dw_stock_ex"] = {*rp["path_hh_proj"],*["scen_hh_disagg"]} 
+rp["path_dw_stock_nb"] = {*rp["path_hh_proj"],*["scen_hh_disagg"]}  
+rp["path_dw_stock_hde"] = {*rp["path_hh_proj"],*["scen_hh_disagg"]}  
+rp["path_dw_stock_ede"] = {*rp["path_hh_proj"],*["scen_hh_disagg"]}  
+rp["path_dw_stock_con"] = {*rp["path_hh_proj"],*["scen_hh_disagg"]}  
+rp["path_dw_stock_sec"] = {*rp["path_hh_proj"],*["scen_hh_disagg"]}  
+rp["path_dw_stock_dh"] = {*rp["path_hh_proj"],*["scen_hh_disagg"]}
+rp["path_dw_stock_epc"] = {*rp["path_hh_proj"],*["scen_hh_disagg"]}  
+
+rule calc_dw_stock_projections:
+    input:
+        "calc_dw_stock_projections.py",
+        paths_dw_stock_ew=expand(config["fp"]["PATHR"]
+                                +"{file}",
+                                 file=config["fp"]["PATHS_DW_STOCK_EW"]),
+        paths_dw_stock_s=expand(config["fp"]["PATHR"]
+                                +"{file}",
+                                 file=config["fp"]["PATHS_DW_STOCK_S"]),
+        paths_dw_stock_s_totals = get_path("PATHR","PATHS_DW_STOCK_S_TOTALS"),
+        path_dw_stock_d_w=get_path("PATHR","PATH_DW_STOCK_D_W"),
+        path_dw_stock_d_e=get_path("PATHR","PATH_DW_STOCK_D_E"),
+        path_dw_stock_d_s=get_path("PATHR","PATH_DW_STOCK_D_S"),
+        path_dw_stock_epc_s=get_path("PATHR","PATH_DW_STOCK_EPC_S"),
+        path_dw_stock_epc_ew=get_path("PATHR","PATH_DW_STOCK_EPC_EW"),
+        path_dw_mh_lu=get_path("PATHR","PATH_DW_MH_LU"),
+        path_dw_sh_lu=get_path("PATHR","PATH_DW_SH_LU"),
+        path_dw_hw_lu=get_path("PATHR","PATH_DW_HW_LU"),
+        path_dw_wa_lu=get_path("PATHR","PATH_DW_WA_LU"),
+        path_dw_wi_lu=get_path("PATHR","PATH_DW_WI_LU"),
+        path_dw_fl_lu=get_path("PATHR","PATH_DW_FL_LU"),
+        path_dw_ro_lu=get_path("PATHR","PATH_DW_RO_LU"),
+        path_dw_ehs=get_path("PATHR","PATH_DW_EHS"),
+        
+                        
+        path_hh_proj=get_path("PATHP","PATH_HH_PROJ"),
+        path_ec_ghhi_dist = get_path("PATHP","PATH_EC_GHHI_DIST"),
+        path_ec_ghhi_ten = get_path("PATHR","PATH_EC_GHHI_TEN")                                                      
+     
+    output:
+        path_dw_stock_ex = get_path("PATHP","PATH_DW_STOCK_EX"),
+        path_dw_stock_nb = get_path("PATHP","PATH_DW_STOCK_NB"),
+        path_dw_stock_hde = get_path("PATHP","PATH_DW_STOCK_HDE"),
+        path_dw_stock_ede = get_path("PATHP","PATH_DW_STOCK_EDE"),
+        path_dw_stock_con = get_path("PATHP","PATH_DW_STOCK_CON"),
+        path_dw_stock_sec = get_path("PATHP","PATH_DW_STOCK_SEC"),
+        path_dw_stock_dh = get_path("PATHP","PATH_DW_STOCK_DH"),
+        path_dw_stock_epc = get_path("PATHP","PATH_DW_STOCK_EPC")
+                                                        
+    params:
+        dic = ps[rp["path_dw_stock_ex"]].instance
+        
+    threads: 1
+    resources:
+        mem_mb=1024*80,
+        runtime=220  
+    script:
+        "calc_dw_stock_projections.py"
+
+dnrp= {*["scen_local_gov"]}
+        
+rp["path_loc_gov_em"] = dnrp
+rp["path_loc_gov_invcon"] = dnrp
+rp["path_local_pledges"] = dnrp
+
+rule calc_local_gov:
+    input:
+        "calc_local_gov.py",
+        path_loc_gov_pl=get_path("PATHR","PATH_LOC_GOV_PL"),
+        path_loc_gov_pa=get_path("PATHR","PATH_LOC_GOV_PA"),
+        path_loc_gov_lac=get_path("PATHR","PATH_LOC_GOV_LAC")
+        
+    output:
+        path_loc_gov_em=get_path("PATHP", "PATH_LOC_GOV_EM"),
+        path_loc_gov_invcon=get_path("PATHP", "PATH_LOC_GOV_INVCON"),
+        
+        # for plotting and run aggregation purposes only (manual inclusion)
+        path_local_pledges=get_path("PATHP", "PATH_LOCAL_PLEDGES"),
+    params:
+        dic = ps[rp["path_loc_gov_em"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*5,
+        runtime=10   
+    script:
+        "calc_local_gov.py"        
+
+rp["path_nd_stock_ex"] = {*rp["path_hh_proj"],*[]}  
+rp["path_nd_stock_nb"] = {*rp["path_hh_proj"], *[]}  
+rp["path_nd_stock_hde"] = {*rp["path_hh_proj"],*[]} 
+
+rule calc_nd_stock_projections:
+    input:
+        "calc_nd_stock_projections.py",
+        path_set_nd_prop=get_path("PATHR","PATH_SET_ND_PROP"),
+        path_set_eff=get_path("PATHR","PATH_SET_EFF"),
+        path_nd_stock_epc_s=get_path("PATHR","PATH_ND_STOCK_EPC_S"),
+        path_nd_stock_epc_ew=get_path("PATHR","PATH_ND_STOCK_EPC_EW"),
+        path_nd_stock_dec_ew=get_path("PATHR","PATH_ND_STOCK_DEC_EW"),
+        path_nd_stock_ndr=get_path("PATHR","PATH_ND_STOCK_NDR"), 
+        path_nd_stock_bees_app=get_path("PATHR","PATH_ND_STOCK_BEES_APP"),
+        # path_ecuk_enduse=get_path("PATHR","PATH_ECUK_ENDUSE"), # not in use anymore - to delete 
+        path_nd_pt_lu=get_path("PATHR","PATH_ND_PT_LU"),
+                         
+        path_hh_proj=get_path("PATHP","PATH_HH_PROJ"),
+        #path_nd_int_sh=get_path("PATHP","PATH_ND_INT_SH") # not in use anymore - to delete                       
+
+    output:
+        path_nd_stock_ex = get_path("PATHP","PATH_ND_STOCK_EX"),
+        path_nd_stock_nb = get_path("PATHP","PATH_ND_STOCK_NB"),
+        path_nd_stock_hde = get_path("PATHP","PATH_ND_STOCK_HDE"),
+    params:
+        dic = ps[rp["path_nd_stock_ex"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*15,
+        runtime=90
+    script:
+        "calc_nd_stock_projections.py"
+
+
+
+
+rp["path_res_caps_ht_f"]={*rp["path_dw_stock_hde"],
+                        *rp["path_nd_stock_hde"],
+                        *[]}   
+
+rule calc_residual_frac_heat_tech:
+    input:
+        "calc_residual_fractions_heat_tech.py",
+        path_dw_c_he=get_path("PATHR","PATH_DW_C_HE"),
+        path_lsoa_lookup=get_path("PATHR","PATH_LSOA_LOOKUP"),
+        
+        path_dw_stock_hde=get_path("PATHP","PATH_DW_STOCK_HDE"),
+        path_nd_stock_hde=get_path("PATHP","PATH_ND_STOCK_HDE")
+        
+    output:
+       path_res_caps_ht_f=get_path("PATHP","PATH_RES_CAPS_HT_F")    
+    params:
+        dic = ps[rp["path_res_caps_ht_f"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*10,
+        runtime=15
+    script:
+        "calc_residual_fractions_heat_tech.py"       
+        
+ad_rp = {*rp["path_loc_gov_em"],
+        *rp["path_nd_stock_ex"],
+        *rp["path_res_caps_ht_f"],
+        *['scen_nhg','scen_nhe']}
+
+rp["path_nd_int_hw"] = ad_rp
+rp["path_nd_int_nhe"] = ad_rp 
+rp["path_nd_int_nhg"] = ad_rp
+rp["path_nd_int_sh"] = ad_rp
+rp["path_nd_int_sh_nb"] = ad_rp
+          
+rule calc_nd_demand_intensities:
+    input:
+        "calc_nd_demand_intensities.py",
+        path_set_nd_dem_int = get_path("PATHR","PATH_SET_ND_INT"),
+        path_set_sets=get_path("PATHR","PATH_SET_SETS"),
+        path_set_eff=get_path("PATHR","PATH_SET_EFF"),
+        path_nd_stock_bees_ova=get_path("PATHR","PATH_ND_STOCK_BEES_OVA"),
+        path_loc_gov_em=get_path("PATHP", "PATH_LOC_GOV_EM"),
+        path_nd_stock_ex=get_path("PATHP","PATH_ND_STOCK_EX"),
+        path_res_caps_ht_f=get_path("PATHP","PATH_RES_CAPS_HT_F")
+        
+    output:
+        path_nd_int_hw = get_path("PATHP","PATH_ND_INT_HW"),
+        path_nd_int_nhe = get_path("PATHP","PATH_ND_INT_NHE"),
+        path_nd_int_nhg = get_path("PATHP","PATH_ND_INT_NHG"),
+        path_nd_int_sh = get_path("PATHP","PATH_ND_INT_SH"),
+        path_nd_int_sh_nb = get_path("PATHP","PATH_ND_INT_SH_NB"),
+    params:
+        dic = ps[rp["path_nd_int_hw"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*5,
+        runtime=20
+    script:
+        "calc_nd_demand_intensities.py"
+        
+
+
+
+
+ad_rp = {*rp["path_res_caps_ht_f"],
+         *rp["path_dw_stock_ex"],
+         *rp["path_dw_stock_hde"],
+         *rp["path_loc_gov_em"],
+         *rp["path_dw_stock_epc"],
+         *['scen_nhg','scen_nhe']}
+
+rp["path_dw_int_hw"] = ad_rp 
+rp["path_dw_int_nhe"] = ad_rp
+rp["path_dw_int_nhg"] = ad_rp
+rp["path_dw_int_sh"] = ad_rp
+rp["path_dw_int_sh_nb"] = ad_rp
+           
+rule calc_dw_demand_intensities:
+    input:
+        "calc_dw_demand_intensities.py",
+        #path_need_con_ew=get_path("PATHR","PATH_NEED_CON_EW"), # required if LA NEED approach implemented as option
+        #path_need_con_s=get_path("PATHR","PATH_NEED_CON_S"), # required if LA NEED approach implemented as option
+        path_need_conr_ew=get_path("PATHR","PATH_NEED_CONR_EW"),
+        #path_dw_con_e=get_path("PATHR","PATH_DW_CON_E"), # used for LSOA calibration, currently not in use
+        #path_dw_con_g=get_path("PATHR","PATH_DW_CON_G"),# used for LSOA calibration, currently not in use
+        path_set_dw_int=get_path("PATHR","PATH_SET_DW_INT"),
+        path_set_eff=get_path("PATHR","PATH_SET_EFF"),
+        path_set_sets=get_path("PATHR","PATH_SET_SETS"),
+                            
+        path_res_caps_ht_f=get_path("PATHP","PATH_RES_CAPS_HT_F"),
+        path_dw_stock_hde =get_path("PATHP","PATH_DW_STOCK_HDE"),
+        #path_dw_stock_ex=get_path("PATHP","PATH_DW_STOCK_EX"),# used for LSOA calibration, currently not in use
+        path_loc_gov_em=get_path("PATHP", "PATH_LOC_GOV_EM"),
+        path_dw_stock_epc = get_path("PATHP","PATH_DW_STOCK_EPC")
+           
+    output:
+        path_dw_int_hw = get_path("PATHP","PATH_DW_INT_HW"),
+        path_dw_int_nhe = get_path("PATHP","PATH_DW_INT_NHE"),
+        path_dw_int_nhg = get_path("PATHP","PATH_DW_INT_NHG"),
+        path_dw_int_sh = get_path("PATHP","PATH_DW_INT_SH"),
+        path_dw_int_sh_nb = get_path("PATHP","PATH_DW_INT_SH_NB"),       
+    params:
+        dic = ps[rp["path_dw_int_hw"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*10,
+        runtime=25
+
+    script:
+        "calc_dw_demand_intensities.py"
+
+
+
+
+ad_rp = {*rp["path_dw_stock_ex"],
+        *rp["path_dw_stock_nb"],
+        *rp["path_nd_stock_ex"],
+        *rp["path_nd_stock_nb"],
+        *rp["path_dw_int_sh"],
+        *rp["path_dw_int_sh_nb"],
+        *rp["path_dw_int_hw"],
+        *rp["path_dw_int_nhe"],
+        *rp["path_dw_int_nhg"],
+        *rp["path_nd_int_sh"],
+        *rp["path_nd_int_sh_nb"],
+        *rp["path_nd_int_hw"],
+        *rp["path_nd_int_nhe"],
+        *rp["path_nd_int_nhg"],
+        *rp["path_res_caps_ht_f"],
+        *["scen_dem_calib"]}
+        
+rp["path_dw_ann_dem_sh"]=ad_rp
+rp["path_dw_ann_dem_hw"]=ad_rp
+rp["path_dw_ann_dem_sh_nb"]=ad_rp
+rp["path_dw_ann_dem_nhe"]=ad_rp
+rp["path_dw_ann_dem_nhg"]=ad_rp
+rp["path_nd_ann_dem_sh"]=ad_rp
+rp["path_nd_ann_dem_hw"]=ad_rp
+rp["path_nd_ann_dem_sh_nb"]=ad_rp
+rp["path_nd_ann_dem_nhe"]=ad_rp
+rp["path_nd_ann_dem_nhg"]=ad_rp
+                
+rule calc_annual_demand:
+    input:
+        "calc_annual_demands.py",
+        path_set_eff=get_path("PATHR","PATH_SET_EFF"),
+        path_dw_con_g=get_path("PATHR","PATH_DW_CON_G"),
+        path_dw_con_e=get_path("PATHR","PATH_DW_CON_E"),
+        path_nd_con_g=get_path("PATHR","PATH_ND_CON_G"),
+        path_nd_con_e=get_path("PATHR","PATH_ND_CON_E"),
+        path_ecuk_enduse=get_path("PATHR","PATH_ECUK_ENDUSE"),
+        path_set_nd_prop=get_path("PATHR","PATH_SET_ND_PROP"),
+        
+        path_dw_stock_ex=get_path("PATHP","PATH_DW_STOCK_EX"),
+        path_dw_stock_nb=get_path("PATHP","PATH_DW_STOCK_NB"),
+        path_nd_stock_ex=get_path("PATHP","PATH_ND_STOCK_EX"),
+        path_nd_stock_nb=get_path("PATHP","PATH_ND_STOCK_NB"),
+        path_dw_int_sh=get_path("PATHP","PATH_DW_INT_SH"),
+        path_dw_int_hw=get_path("PATHP","PATH_DW_INT_HW"),
+        path_dw_int_sh_nb=get_path("PATHP","PATH_DW_INT_SH_NB"),
+        path_dw_int_nhe=get_path("PATHP","PATH_DW_INT_NHE"),
+        path_dw_int_nhg=get_path("PATHP","PATH_DW_INT_NHG"),
+        path_nd_int_sh=get_path("PATHP","PATH_ND_INT_SH"),
+        path_nd_int_hw=get_path("PATHP","PATH_ND_INT_HW"),
+        path_nd_int_sh_nb=get_path("PATHP","PATH_ND_INT_SH_NB"),
+        path_nd_int_nhe=get_path("PATHP","PATH_ND_INT_NHE"),
+        path_nd_int_nhg=get_path("PATHP","PATH_ND_INT_NHG"),
+        path_res_caps_ht_f=get_path("PATHP","PATH_RES_CAPS_HT_F"),
+
+    output:
+        path_dw_ann_dem_sh=get_path("PATHP","PATH_DW_ANN_DEM_SH"),
+        path_dw_ann_dem_hw=get_path("PATHP","PATH_DW_ANN_DEM_HW"),
+        path_dw_ann_dem_sh_nb=get_path("PATHP","PATH_DW_ANN_DEM_SH_NB"),
+        path_dw_ann_dem_nhe=get_path("PATHP","PATH_DW_ANN_DEM_NHE"),
+        path_dw_ann_dem_nhg=get_path("PATHP","PATH_DW_ANN_DEM_NHG"),
+        path_nd_ann_dem_sh=get_path("PATHP","PATH_ND_ANN_DEM_SH"),
+        path_nd_ann_dem_hw=get_path("PATHP","PATH_ND_ANN_DEM_HW"),
+        path_nd_ann_dem_sh_nb=get_path("PATHP","PATH_ND_ANN_DEM_SH_NB"),
+        path_nd_ann_dem_nhe=get_path("PATHP","PATH_ND_ANN_DEM_NHE"),
+        path_nd_ann_dem_nhg=get_path("PATHP","PATH_ND_ANN_DEM_NHG")
+    params:
+        dic = ps[rp["path_dw_ann_dem_sh"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*16,
+        runtime=30
+  
+    script:
+        "calc_annual_demands.py"
+
+
+rp["path_ra_timeseries"] = {}
+
+rule calc_reanalysis_timeseries:
+    input:
+        "calc_reanalysis_timeseries.py",
+        path_era5=get_path("PATHR","PATH_ERA5"),
+        path_ctry_bounds=get_path("PATHR","PATH_CTRY_BOUNDS"),
+        path_lad_bounds=get_path("PATHR","PATH_LAD_BOUNDS"),
+        path_offw_ewni_bounds=get_path("PATHR","PATH_OFFW_EWNI_BOUNDS"),
+        path_offw_s_bounds=get_path("PATHR","PATH_OFFW_S_BOUNDS")
+        
+    output:
+        path_ra_timeseries=get_path("PATHP","PATH_RA_TIMESERIES")
+    params:
+        dic = ps[rp["path_ra_timeseries"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*5,
+        runtime=15
+    script:
+        "calc_reanalysis_timeseries.py"
+        
+        
+        
+rp["path_temp"] = {}
+
+rule calc_temperature_timeseries:
+    input:
+        "calc_temperature_timeseries.py",
+        path_climate_dir=[get_path("PATHR","PATH_CLIMATE_DIR")
+        +file for file in sorted(os.listdir(get_path("PATHR","PATH_CLIMATE_DIR")[:-1]))
+         if file.endswith(".nc")],
+        path_lad_bounds=get_path("PATHR","PATH_LAD_BOUNDS"),
+
+    output:
+        path_temp=get_path("PATHP","PATH_TEMP")
+    params:
+        dic = ps[rp["path_temp"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*20,
+        runtime=300
+    script:
+        "calc_temperature_timeseries.py"
+
+rp["path_dem_tseries_sh"] = {*rp["path_temp"],*[]}
+rp["path_dem_tseries_hw"] = {*rp["path_temp"],*[]}
+rp["path_dem_tseries_shw"] = {*rp["path_temp"],*[]}
+rp["path_dem_tseries_nhe"] = {*rp["path_temp"],*[]}
+rp["path_dem_tseries_nhg"] = {*rp["path_temp"],*[]}
+
+rule calc_demand_timeseries:
+    input:
+        "calc_demand_timeseries.py",
+        
+        path_temp=get_path("PATHP","PATH_TEMP")
+        
+    output:
+        path_dem_tseries_sh=get_path("PATHP","PATH_DEM_TSERIES_SH"),
+        path_dem_tseries_hw=get_path("PATHP","PATH_DEM_TSERIES_HW"),
+        path_dem_tseries_shw=get_path("PATHP","PATH_DEM_TSERIES_SHW"),
+        path_dem_tseries_nhe=get_path("PATHP","PATH_DEM_TSERIES_NHE"),
+        path_dem_tseries_nhg=get_path("PATHP","PATH_DEM_TSERIES_NHG")
+    params:
+        dic = ps[rp["path_dem_tseries_sh"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*2,
+        runtime=30
+    script:
+        "calc_demand_timeseries.py"
+
+     
+atrp={*rp["path_dem_tseries_sh"],
+        *rp["path_dem_tseries_hw"],
+        *rp["path_dem_tseries_shw"],
+        *rp["path_dem_tseries_nhe"],
+        *rp["path_dem_tseries_nhg"],
+        *rp["path_ra_timeseries"],
+        *["scen_hh_disagg",
+        "scen_time_agg",
+        "scen_supply_imp"]}
+
+       
+rp["path_tperiods_sh"] = atrp
+rp["path_tperiods_hw"] = atrp
+rp["path_tperiods_shw"] = atrp 
+rp["path_tperiods_nhe"] = atrp
+rp["path_tperiods_nhg"] = atrp
+rp["path_tperiods_supply"] = atrp
+rp["path_tperiods_len"] = atrp             
+
+rule calc_aggregated_timeseries:
+    input:
+        "calc_aggregated_timeseries.py",
+        path_dem_tseries_sh=get_path("PATHP","PATH_DEM_TSERIES_SH"),
+        path_dem_tseries_hw=get_path("PATHP","PATH_DEM_TSERIES_HW"),
+        path_dem_tseries_shw=get_path("PATHP","PATH_DEM_TSERIES_SHW"),
+        path_dem_tseries_nhe=get_path("PATHP","PATH_DEM_TSERIES_NHE"),
+        path_dem_tseries_nhg=get_path("PATHP","PATH_DEM_TSERIES_NHG"),
+        path_ra_timeseries=get_path("PATHP","PATH_RA_TIMESERIES")
+        
+    output:
+        path_tperiods_sh=get_path("PATHP","PATH_TPERIODS_SH"),
+        path_tperiods_hw=get_path("PATHP","PATH_TPERIODS_HW"),
+        path_tperiods_shw=get_path("PATHP","PATH_TPERIODS_SHW"),
+        path_tperiods_nhe=get_path("PATHP","PATH_TPERIODS_NHE"),
+        path_tperiods_nhg=get_path("PATHP","PATH_TPERIODS_NHG"),
+        path_tperiods_supply=get_path("PATHP","PATH_TPERIODS_SUPPLY"),
+        path_tperiods_len=get_path("PATHP","PATH_TPERIODS_LEN")
+    params:
+        dic = ps[rp["path_tperiods_sh"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*8,
+        runtime=20
+    script:
+        "calc_aggregated_timeseries.py"
+
+
+pdrp={*rp["path_dw_stock_ex"],
+        *rp["path_dw_stock_nb"],
+        *rp["path_nd_stock_ex"],
+        *rp["path_nd_stock_nb"],
+        *rp["path_dw_ann_dem_sh"],
+        *rp["path_dw_ann_dem_sh_nb"],
+        *rp["path_nd_ann_dem_sh"],
+        *rp["path_nd_ann_dem_sh_nb"],
+        *[]}
+
+rp["path_dw_peakd"]=pdrp
+rp["path_peakc_lsoa"]=pdrp
+
+rule calc_peak_demand:
+    input:
+        "calc_peak_demands.py",
+        path_building_eff=get_path("PATHR","PATH_BUILDING_EFF"),
+        path_set_nd_prop=get_path("PATHR","PATH_SET_ND_PROP"),
+        
+        path_dw_stock_ex=get_path("PATHP","PATH_DW_STOCK_EX"),
+        path_dw_stock_nb=get_path("PATHP","PATH_DW_STOCK_NB"),
+        path_nd_stock_ex=get_path("PATHP","PATH_ND_STOCK_EX"),
+        path_nd_stock_nb=get_path("PATHP","PATH_ND_STOCK_NB"),
+        path_dw_ann_dem_sh=get_path("PATHP","PATH_DW_ANN_DEM_SH"),
+        path_dw_ann_dem_sh_nb=get_path("PATHP","PATH_DW_ANN_DEM_SH_NB"),
+        path_nd_ann_dem_sh=get_path("PATHP","PATH_ND_ANN_DEM_SH"),
+        path_nd_ann_dem_sh_nb=get_path("PATHP","PATH_ND_ANN_DEM_SH_NB")
+        
+    output:
+        path_dw_peakd=get_path("PATHP","PATH_DW_PEAKD"),
+        path_peakc_lsoa=get_path("PATHP","PATH_PEAKC_LSOA")
+    params:
+        dic = ps[rp["path_dw_peakd"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*50,
+        runtime=120
+    script:
+        "calc_peak_demands.py"
+
+rp["path_conserv_areas"]={} 
+rule calc_conservation_areas:
+    input:
+        "calc_conservation_areas.py",
+        path_conserv_areas_s=get_path("PATHR","PATH_CONSERV_AREAS_S"),
+        path_conserv_areas_w=get_path("PATHR","PATH_CONSERV_AREAS_W"),
+        path_conserv_areas_e=get_path("PATHR","PATH_CONSERV_AREAS_E"),
+        path_build_map=get_path("PATHR","PATH_BUILD_MAP"),
+        path_sh_lsoas=get_path("PATHR","PATH_SH_LSOAS"),        
+        
+    output:
+        path_conserv_areas=get_path("PATHP","PATH_CONSERV_AREAS")
+    params:
+        dic = ps[rp["path_conserv_areas"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*160,
+        runtime=120 
+    script:
+        "calc_conservation_areas.py"          
+
+
+rp["path_res_caps_ht"]={*rp["path_peakc_lsoa"],
+                        *rp["path_res_caps_ht_f"],
+                        *[]}
+rule calc_residual_capacities_heat_tech:
+    input:
+        "calc_residual_capacities_heat_tech.py",
+        
+        path_peakc_lsoa=get_path("PATHP","PATH_PEAKC_LSOA"),
+        path_res_caps_ht_f=get_path("PATHP","PATH_RES_CAPS_HT_F")
+        
+    output:
+        path_res_caps_ht=get_path("PATHP","PATH_RES_CAPS_HT")      
+    params:
+        dic = ps[rp["path_res_caps_ht"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*30,
+        runtime=30
+    script:
+        "calc_residual_capacities_heat_tech.py"
+        
+        
+
+
+
+rp["path_road_lengths"] = {}
+rule calc_road_lengths:
+    input:
+        "calc_road_lengths.py",
+        path_sh_roads=get_path("PATHR","PATH_SH_ROADS"),
+        path_sh_lsoas=get_path("PATHR","PATH_SH_LSOAS")
+
+    output:
+        path_road_lengths=get_path("PATHP","PATH_ROAD_LENGTHS")
+    params:
+        dic = ps[rp["path_road_lengths"]].instance
+    threads: 32
+    resources:
+        mem_mb=15000,
+        runtime=100
+    script:
+        "calc_road_lengths.py"
+
+rp["path_dem_density"]={*rp["path_road_lengths"],
+                            *rp["path_dw_ann_dem_sh"],
+                            *rp["path_dw_ann_dem_hw"],
+                            *rp["path_dw_ann_dem_sh_nb"],
+                            *rp["path_nd_ann_dem_sh"],
+                            *rp["path_nd_ann_dem_hw"],
+                            *rp["path_nd_ann_dem_sh_nb"],
+                            *[]}
+rule calc_demand_density:
+    input:
+        "calc_demand_density.py",
+        
+        path_road_lengths=get_path("PATHP","PATH_ROAD_LENGTHS"),
+        path_dw_ann_dem_sh=get_path("PATHP","PATH_DW_ANN_DEM_SH"),
+        path_dw_ann_dem_hw=get_path("PATHP","PATH_DW_ANN_DEM_HW"),
+        path_dw_ann_dem_sh_nb=get_path("PATHP","PATH_DW_ANN_DEM_SH_NB"),
+        path_nd_ann_dem_sh=get_path("PATHP","PATH_ND_ANN_DEM_SH"),
+        path_nd_ann_dem_hw=get_path("PATHP","PATH_ND_ANN_DEM_HW"),
+        path_nd_ann_dem_sh_nb=get_path("PATHP","PATH_ND_ANN_DEM_SH_NB"),
+    output:
+        path_dem_density=get_path("PATHP","PATH_DEM_DENSITY")
+    params:
+        dic = ps[rp["path_dem_density"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*5,
+        runtime=15
+         
+    script:
+        "calc_demand_density.py"
+
+
+rp["path_sublocal_agg"]={*rp["path_dem_density"],
+                        *["scen_sublocal_agg"]}
+rule calc_sublocal_agg:
+    input:
+        "calc_sublocal_agg.py",
+        path_set_dh_cl=get_path("PATHR","PATH_SET_DH_CL"),
+        
+        path_dem_density=get_path("PATHP","PATH_DEM_DENSITY"),
+
+    output:
+        path_sublocal_agg=get_path("PATHP","PATH_SUBLOCAL_AGG")
+    params:
+        dic = ps[rp["path_sublocal_agg"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*5,
+        runtime=15
+    script:
+        "calc_sublocal_agg.py"
+
+
+birp={*rp["path_dw_stock_ede"],
+        *rp["path_dw_stock_ex"],
+        *rp["path_nd_stock_ex"],
+        *rp["path_conserv_areas"],
+        *rp["path_peakc_lsoa"],
+        *rp["path_res_caps_ht"],
+        *rp["path_nd_ann_dem_sh"],
+        *rp["path_sublocal_agg"],
+        *[]}
+
+rp["path_building_measures_cost"]=birp
+rp["path_building_measures_con"]=birp
+rp["path_building_measures_lt"]=birp
+rp["path_building_measures_dc"]=birp    
+
+rule calc_building_improvements:
+    input:
+        "calc_building_improvements.py",
+        path_set_bd_eff=get_path("PATHR","PATH_SET_BD_EFF"),
+        path_set_lt=get_path("PATHR","PATH_SET_LT"),
+        path_set_eff=get_path("PATHR","PATH_SET_EFF"),
+        path_building_eff=get_path("PATHR","PATH_BUILDING_EFF"),
+        path_nd_building_eff=get_path("PATHR","PATH_ND_BUILDING_EFF"),
+        path_dw_building_num=get_path("PATHR","PATH_DW_BUILDING_NUM"),
+        
+        path_dw_stock_ede=get_path("PATHP","PATH_DW_STOCK_EDE"),
+        path_dw_stock_ex=get_path("PATHP","PATH_DW_STOCK_EX"),
+        path_nd_stock_ex=get_path("PATHP","PATH_ND_STOCK_EX"),
+        path_conserv_areas=get_path("PATHP","PATH_CONSERV_AREAS"),
+        path_peakc_lsoa=get_path("PATHP","PATH_PEAKC_LSOA"),
+        path_res_caps_ht=get_path("PATHP","PATH_RES_CAPS_HT"),
+        path_nd_ann_dem_sh=get_path("PATHP","PATH_ND_ANN_DEM_SH"),
+        path_sublocal_agg=get_path("PATHP","PATH_SUBLOCAL_AGG")
+        
+    output:
+        path_building_measures_cost=get_path("PATHP","PATH_BUILDING_MEASURES_COST"),
+        path_building_measures_con=get_path("PATHP","PATH_BUILDING_MEASURES_CON"),
+        path_building_measures_lt=get_path("PATHP","PATH_BUILDING_MEASURES_LT"),
+        path_building_measures_dc=get_path("PATHP","PATH_BUILDING_MEASURES_DC")
+    params:
+        dic = ps[rp["path_building_measures_cost"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*25,
+        runtime=30
+    script:
+        "calc_building_improvements.py"
+
+
+
+
+dnrp= {*rp["path_road_lengths"],
+        *rp["path_dw_ann_dem_sh"],
+        *rp["path_dw_ann_dem_hw"],
+        *rp["path_dw_ann_dem_sh_nb"],
+        *rp["path_dw_ann_dem_nhe"],
+        *rp["path_dw_ann_dem_nhg"],
+        *rp["path_nd_ann_dem_sh"],
+        *rp["path_nd_ann_dem_hw"],
+        *rp["path_nd_ann_dem_sh_nb"],
+        *rp["path_nd_ann_dem_nhe"],
+        *rp["path_nd_ann_dem_nhg"],
+        *rp["path_res_caps_ht_f"],
+        *rp["path_tperiods_shw"],
+        *rp["path_tperiods_sh"],
+        *rp["path_tperiods_hw"],
+        *rp["path_tperiods_nhg"],
+        *rp["path_tperiods_nhe"],
+        *rp["path_tperiods_len"],
+        *rp["path_dw_stock_ex"],
+        *rp["path_dw_stock_nb"],
+        *rp["path_nd_stock_ex"],
+        *rp["path_nd_stock_nb"],
+        *rp["path_sublocal_agg"],
+        *rp["path_dw_stock_dh"],
+        *["scen_networks"]}
+        
+rp["path_local_cost"]=dnrp
+rp["path_local_eff"]=dnrp
+rp["path_local_con"]=dnrp
+rp["path_local_capf"]=dnrp
+rp["path_local_res_caps"]=dnrp
+rp["path_dhgen_res_caps"]=dnrp
+ 
+rule calc_dist_networks:
+    input:
+        "calc_dist_networks.py",
+        path_set_eff=get_path("PATHR","PATH_SET_EFF"),
+        path_set_lt=get_path("PATHR","PATH_SET_LT"),
+        path_set_sets=get_path("PATHR","PATH_SET_SETS"),
+        path_set_nd_prop=get_path("PATHR","PATH_SET_ND_PROP"),
+        path_set_dist_net=get_path("PATHR","PATH_SET_DIST_NET"),
+        path_offgas=get_path("PATHR","PATH_OFFGAS"),
+        
+        path_res_caps_ht_f =get_path("PATHP","PATH_RES_CAPS_HT_F"),
+        path_tperiods_hw=get_path("PATHP","PATH_TPERIODS_HW"),
+        path_tperiods_sh=get_path("PATHP","PATH_TPERIODS_SH"),
+        path_tperiods_shw=get_path("PATHP","PATH_TPERIODS_SHW"),
+        path_tperiods_nhe=get_path("PATHP","PATH_TPERIODS_NHE"),
+        path_tperiods_nhg=get_path("PATHP","PATH_TPERIODS_NHG"),
+        path_tperiods_len=get_path("PATHP","PATH_TPERIODS_LEN"),
+        path_road_lengths=get_path("PATHP","PATH_ROAD_LENGTHS"),
+        path_dw_stock_ex = get_path("PATHP","PATH_DW_STOCK_EX"),
+        path_dw_stock_nb = get_path("PATHP","PATH_DW_STOCK_NB"),
+        path_nd_stock_ex = get_path("PATHP","PATH_ND_STOCK_EX"),
+        path_nd_stock_nb = get_path("PATHP","PATH_ND_STOCK_NB"),
+        path_dw_ann_dem_sh=get_path("PATHP","PATH_DW_ANN_DEM_SH"),
+        path_dw_ann_dem_hw=get_path("PATHP","PATH_DW_ANN_DEM_HW"),
+        path_dw_ann_dem_sh_nb=get_path("PATHP","PATH_DW_ANN_DEM_SH_NB"),
+        path_dw_ann_dem_nhe=get_path("PATHP","PATH_DW_ANN_DEM_NHE"),
+        path_dw_ann_dem_nhg=get_path("PATHP","PATH_DW_ANN_DEM_NHG"),
+        path_nd_ann_dem_sh=get_path("PATHP","PATH_ND_ANN_DEM_SH"),
+        path_nd_ann_dem_hw=get_path("PATHP","PATH_ND_ANN_DEM_HW"),
+        path_nd_ann_dem_sh_nb=get_path("PATHP","PATH_ND_ANN_DEM_SH_NB"),
+        path_nd_ann_dem_nhe=get_path("PATHP","PATH_ND_ANN_DEM_NHE"),
+        path_nd_ann_dem_nhg=get_path("PATHP","PATH_ND_ANN_DEM_NHG"),
+        path_sublocal_agg=get_path("PATHP","PATH_SUBLOCAL_AGG"),
+        path_dw_stock_dh = get_path("PATHP","PATH_DW_STOCK_DH")
+        
+    output:
+        path_local_cost=get_path("PATHP","PATH_LOCAL_COST"),
+        path_local_eff=get_path("PATHP","PATH_LOCAL_EFF"),
+        path_local_con=get_path("PATHP","PATH_LOCAL_CON"),
+        path_local_capf=get_path("PATHP","PATH_LOCAL_CAPF"),
+        path_local_res_caps=get_path("PATHP","PATH_LOCAL_RES_CAPS"),
+        path_dhgen_res_caps=get_path("PATHP","PATH_DHGEN_RES_CAPS")
+    params:
+        dic = ps[rp["path_local_cost"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*80,
+        runtime=60     
+    script:
+        "calc_dist_networks.py"
+
+
+
+rp["path_lsupply_cost"]={}
+rp["path_potential_con"]={}     
+rule calc_potentials:
+    input:
+        "calc_potentials.py",
+        path_set_supply=get_path("PATHR","PATH_SET_SUPPLY"),
+        path_lad_bounds=get_path("PATHR","PATH_LAD_BOUNDS"),
+        path_land_cover=get_path("PATHR","PATH_LAND_COVER"),
+        path_bm_potential=get_path("PATHR","PATH_BM_POTENTIAL")
+        
+    output:
+        path_lsupply_cost=get_path("PATHP","PATH_LSUPPLY_COST"),
+        path_potential_con=get_path("PATHP","PATH_POTENTIAL_CON")
+    params:
+        dic = ps[rp["path_lsupply_cost"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*15,
+        runtime=75  
+    script:
+        "calc_potentials.py"
+
+rp["path_heat_pots"]={}   
+rule calc_heat_sources:
+    input:
+        "calc_heat_sources.py",
+        path_set_hsources=get_path("PATHR","PATH_SET_HSOURCES"),
+        path_set_eff=get_path("PATHR","PATH_SET_EFF"),
+        path_sh_lsoas=get_path("PATHR","PATH_SH_LSOAS"),
+        path_ind_eh=get_path("PATHR","PATH_IND_EH"),
+        path_dw_hhp_p_s=get_path("PATHR","PATH_DW_HHP_P_S"),
+        path_dw_hhp_p_w=get_path("PATHR","PATH_DW_HHP_P_W"),
+        path_dw_hh_p_e=get_path("PATHR","PATH_DW_HH_P_E"),
+
+        
+    output:
+        path_heat_pots=get_path("PATHP","PATH_HEAT_POTS")
+    params:
+        dic = ps[rp["path_heat_pots"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*10,
+        runtime=30     
+    script:
+        "calc_heat_sources.py" 
+        
+        
+
+rpht = {*rp["path_conserv_areas"],
+        *rp["path_peakc_lsoa"],
+        *rp["path_dw_peakd"],
+        *rp["path_dw_stock_con"],
+        *rp["path_sublocal_agg"],
+        *rp["path_dw_ann_dem_sh"],
+        *rp["path_nd_stock_ex"],
+        *["scen_htd_con","scen_h2"]}
+                            
+rp["path_heat_tech_con"] = rpht
+rp["path_heat_tech_invcon"] = rpht
+rp["path_heat_tech_udc_tag"] = rpht
+rp["path_heat_tech_udc_tagtech"] = rpht
+rp["path_heat_tech_udc_invcon"] = rpht
+
+rule calc_heat_techs:
+    input:
+        "calc_heat_techs.py",
+        path_set_sets=get_path("PATHR","PATH_SET_SETS"),
+        path_set_htech=get_path("PATHR","PATH_SET_HTECH"),
+        path_ruc=get_path("PATHR","PATH_RUC"),
+        path_set_nd_prop=get_path("PATHR","PATH_SET_ND_PROP"),
+                
+
+        path_conserv_areas=get_path("PATHP","PATH_CONSERV_AREAS"),
+        path_dw_peakd=get_path("PATHP","PATH_DW_PEAKD"),
+        path_peakc_lsoa=get_path("PATHP","PATH_PEAKC_LSOA"),
+        path_dw_stock_con=get_path("PATHP","PATH_DW_STOCK_CON"),
+        path_sublocal_agg=get_path("PATHP","PATH_SUBLOCAL_AGG"),
+        path_res_caps_ht_f=get_path("PATHP","PATH_RES_CAPS_HT_F"),
+        path_res_caps_ht = get_path("PATHP","PATH_RES_CAPS_HT"),
+        path_dw_ann_dem_sh=get_path("PATHP","PATH_DW_ANN_DEM_SH"),
+        path_dw_ann_dem_hw=get_path("PATHP","PATH_DW_ANN_DEM_HW"),
+        path_dw_ann_dem_sh_nb=get_path("PATHP","PATH_DW_ANN_DEM_SH_NB"),
+        path_nd_ann_dem_sh=get_path("PATHP","PATH_ND_ANN_DEM_SH"),
+        path_nd_ann_dem_hw=get_path("PATHP","PATH_ND_ANN_DEM_HW"),
+        path_nd_ann_dem_sh_nb=get_path("PATHP","PATH_ND_ANN_DEM_SH_NB"),        
+        path_dw_stock_ex=get_path("PATHP","PATH_DW_STOCK_EX"),
+        path_dw_stock_nb=get_path("PATHP","PATH_DW_STOCK_NB"),
+        path_nd_stock_ex=get_path("PATHP","PATH_ND_STOCK_EX"),
+        path_nd_stock_nb=get_path("PATHP","PATH_ND_STOCK_NB"),              
+        
+    output:
+        path_heat_tech_con=get_path("PATHP","PATH_HEAT_TECH_CON"),
+        path_heat_tech_invcon=get_path("PATHP","PATH_HEAT_TECH_INVCON"),
+        path_heat_tech_udc_tag=get_path("PATHP","PATH_HEAT_TECH_UDC_TAG"),
+        path_heat_tech_udc_tagtech=get_path("PATHP","PATH_HEAT_TECH_UDC_TAGTECH"),
+        path_heat_tech_udc_invcon=get_path("PATHP","PATH_HEAT_TECH_UDC_INVCON")
+    params:
+        dic = ps[rp["path_heat_tech_con"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*75,
+        runtime=45
+    script:
+        "calc_heat_techs.py"    
+
+
+dnrp= {*rp["path_tperiods_supply"],
+        *rp["path_local_res_caps"],
+        *rp["path_sublocal_agg"],
+        *["scen_networks",
+        "scen_supply_imp"]}
+    
+rp["path_supply_emf"]= dnrp
+rp["path_supply_cost"]= dnrp
+rp["path_supply_lt"]= dnrp
+rp["path_supply_af"]= dnrp
+rp["path_supply_eff"]= dnrp
+rp["path_supply_capfac"]= dnrp
+rp["path_supply_rescap"]= dnrp
+rp["path_supply_capcon"]= dnrp
+rp["path_supply_actcon"]= dnrp
+rp["path_supply_capfrac"]= dnrp
+rp["path_supply_storage"]= dnrp
+rp["path_supply_hurdle"]= dnrp
+
+rule calc_supply_techs:
+    input:
+        "calc_supply_techs.py",
+        path_set_supply=get_path("PATHR","PATH_SET_SUPPLY"),
+        path_set_dist_net=get_path("PATHR","PATH_SET_DIST_NET"),
+        path_building_eff=get_path("PATHR","PATH_BUILDING_EFF"),
+        path_supply_prices=get_path("PATHR","PATH_SUPPLY_PRICES"),
+        path_supply_fprices=get_path("PATHR","PATH_SUPPLY_FPRICES"),
+        path_set_lt=get_path("PATHR","PATH_SET_LT"),
+        path_supply_el = get_path("PATHR","PATH_SUPPLY_EL"),
+        path_supply_h2 = get_path("PATHR","PATH_SUPPLY_H2"),
+        path_supply_el_resc = get_path("PATHR","PATH_SUPPLY_EL_RESC"),
+        path_supply_el_rescr = get_path("PATHR","PATH_SUPPLY_EL_RESCR"),
+        path_lad_bounds=get_path("PATHR","PATH_LAD_BOUNDS"),
+        path_supply_pot=get_path("PATHR","PATH_SUPPLY_POT"),
+        path_ward_lookup_11=get_path("PATHR","PATH_WARD_LOOKUP_11"),
+        path_ward_lookup_16=get_path("PATHR","PATH_WARD_LOOKUP_16"),
+        
+        path_tperiods_supply=get_path("PATHP","PATH_TPERIODS_SUPPLY"),
+        path_local_res_caps=get_path("PATHP","PATH_LOCAL_RES_CAPS"),
+        path_sublocal_agg=get_path("PATHP","PATH_SUBLOCAL_AGG")
+        
+        
+    output:
+        path_supply_cost=get_path("PATHP","PATH_SUPPLY_COST"),
+        path_supply_eff=get_path("PATHP","PATH_SUPPLY_EFF"),
+        path_supply_lt=get_path("PATHP","PATH_SUPPLY_LT"),
+        path_supply_af=get_path("PATHP","PATH_SUPPLY_AF"),
+        path_supply_emf=get_path("PATHP","PATH_SUPPLY_EMF"),
+        path_supply_capfac=get_path("PATHP","PATH_SUPPLY_CAPFAC"),
+        path_supply_rescap=get_path("PATHP","PATH_SUPPLY_RESCAP"),
+        path_supply_capcon=get_path("PATHP","PATH_SUPPLY_CAPCON"),
+        path_supply_actcon=get_path("PATHP","PATH_SUPPLY_ACTCON"),
+        path_supply_capfrac=get_path("PATHP","PATH_SUPPLY_CAPFRAC"),
+        path_supply_storage=get_path("PATHP","PATH_SUPPLY_STORAGE"),
+        path_supply_hurdle=get_path("PATHP","PATH_SUPPLY_HURDLE")
+        
+        
+    params:
+        dic = ps[rp["path_supply_cost"]].instance
+    threads: 1
+    resources:
+        mem_mb=1024*5,
+        runtime=15   
+    script:
+        "calc_supply_techs.py"
+
+
+    
+idrp={*{ii for i in rp.values() for ii in i},
+                     *["scen_year_agg",
+                     "scen_discount_r",
+                     "scen_tech_cost",
+                     "scen_tech_bans",
+                     "scen_em_limit",
+                     "scen_mcap_con",
+                     "model_eq","name"]}
+rp["path_built_ms"] = idrp
+rp["path_years_map"] = idrp
+                                          
+rule create_input_data_set:
+    input:
+        "create_input_data_set.py",
+        path_set_lt=get_path("PATHR","PATH_SET_LT"),
+        path_set_costs=get_path("PATHR","PATH_SET_COSTS"),
+        path_set_sets=get_path("PATHR","PATH_SET_SETS"),
+        path_set_eff=get_path("PATHR","PATH_SET_EFF"),
+        path_set_cap_con=get_path("PATHR","PATH_SET_CAP_CON"),
+        path_set_act_con=get_path("PATHR","PATH_SET_ACT_CON"),
+        path_set_em=get_path("PATHR","PATH_SET_EM"),
+        path_set_reservem=get_path("PATHR","PATH_SET_RESERVEM"),
+        path_set_disc=get_path("PATHR","PATH_SET_DISC"),
+        path_set_ftpm=get_path("PATHR","PATH_SET_FTPM"),
+        
+        path_dw_ann_dem_sh=get_path("PATHP","PATH_DW_ANN_DEM_SH"),
+        path_dw_ann_dem_hw=get_path("PATHP","PATH_DW_ANN_DEM_HW"),
+        path_dw_ann_dem_sh_nb=get_path("PATHP","PATH_DW_ANN_DEM_SH_NB"),
+        path_nd_ann_dem_sh=get_path("PATHP","PATH_ND_ANN_DEM_SH"),
+        path_nd_ann_dem_hw=get_path("PATHP","PATH_ND_ANN_DEM_HW"),
+        path_nd_ann_dem_sh_nb=get_path("PATHP","PATH_ND_ANN_DEM_SH_NB"),
+        path_dw_ann_dem_nhe=get_path("PATHP","PATH_DW_ANN_DEM_NHE"),
+        path_dw_ann_dem_nhg=get_path("PATHP","PATH_DW_ANN_DEM_NHG"),
+        path_nd_ann_dem_nhe=get_path("PATHP","PATH_ND_ANN_DEM_NHE"),
+        path_nd_ann_dem_nhg=get_path("PATHP","PATH_ND_ANN_DEM_NHG"),
+        path_tperiods_sh=get_path("PATHP","PATH_TPERIODS_SH"),
+        path_tperiods_hw=get_path("PATHP","PATH_TPERIODS_HW"),
+        path_tperiods_shw=get_path("PATHP","PATH_TPERIODS_SHW"),
+        path_tperiods_nhe=get_path("PATHP","PATH_TPERIODS_NHE"),
+        path_tperiods_nhg=get_path("PATHP","PATH_TPERIODS_NHG"),
+        path_tperiods_len=get_path("PATHP","PATH_TPERIODS_LEN"),
+        path_peakc_lsoa=get_path("PATHP","PATH_PEAKC_LSOA"),
+        path_res_caps_ht=get_path("PATHP","PATH_RES_CAPS_HT"),
+        path_local_cost=get_path("PATHP","PATH_LOCAL_COST"),
+        path_local_con=get_path("PATHP","PATH_LOCAL_CON"),
+        path_local_eff=get_path("PATHP","PATH_LOCAL_EFF"),
+        path_local_capf=get_path("PATHP","PATH_LOCAL_CAPF"),
+        path_local_res_caps=get_path("PATHP","PATH_LOCAL_RES_CAPS"),
+        path_building_measures_cost=get_path("PATHP","PATH_BUILDING_MEASURES_COST"),
+        path_building_measures_con=get_path("PATHP","PATH_BUILDING_MEASURES_CON"),
+        path_building_measures_lt=get_path("PATHP","PATH_BUILDING_MEASURES_LT"),
+        path_building_measures_dc=get_path("PATHP","PATH_BUILDING_MEASURES_DC"),
+        path_lsupply_cost=get_path("PATHP","PATH_LSUPPLY_COST"),
+        path_potential_con=get_path("PATHP","PATH_POTENTIAL_CON"),
+        path_supply_cost=get_path("PATHP","PATH_SUPPLY_COST"),
+        path_supply_eff=get_path("PATHP","PATH_SUPPLY_EFF"),
+        path_supply_lt=get_path("PATHP","PATH_SUPPLY_LT"),
+        path_supply_af=get_path("PATHP","PATH_SUPPLY_AF"),
+        path_supply_emf=get_path("PATHP","PATH_SUPPLY_EMF"),
+        path_supply_capfac=get_path("PATHP","PATH_SUPPLY_CAPFAC"),
+        path_supply_rescap=get_path("PATHP","PATH_SUPPLY_RESCAP"),
+        path_supply_capcon=get_path("PATHP","PATH_SUPPLY_CAPCON"),
+        path_supply_actcon=get_path("PATHP","PATH_SUPPLY_ACTCON"),
+        path_supply_capfrac=get_path("PATHP","PATH_SUPPLY_CAPFRAC"),
+        path_supply_storage=get_path("PATHP","PATH_SUPPLY_STORAGE"),
+        path_heat_pots=get_path("PATHP","PATH_HEAT_POTS"),
+        path_heat_tech_con=get_path("PATHP","PATH_HEAT_TECH_CON"),
+        path_heat_tech_invcon=get_path("PATHP","PATH_HEAT_TECH_INVCON"),
+        path_heat_tech_udc_tag=get_path("PATHP","PATH_HEAT_TECH_UDC_TAG"),
+        path_heat_tech_udc_tagtech=get_path("PATHP","PATH_HEAT_TECH_UDC_TAGTECH"),
+        path_heat_tech_udc_invcon=get_path("PATHP","PATH_HEAT_TECH_UDC_INVCON"),
+        path_local_gov_em=get_path("PATHP", "PATH_LOC_GOV_EM"),
+        path_loc_gov_invcon=get_path("PATHP", "PATH_LOC_GOV_INVCON"),
+        path_sublocal_agg=get_path("PATHP","PATH_SUBLOCAL_AGG"),
+        path_dw_stock_dh = get_path("PATHP","PATH_DW_STOCK_DH"),
+        path_dhgen_res_caps=get_path("PATHP","PATH_DHGEN_RES_CAPS")
+        
+    output:
+        path_years_map = get_path("PATHP","PATH_YEARS_MAP"),
+
+        # currently simplified representation through one file
+        path_built_ms = get_path("PATHF","PATH_BUILT_MS",bfn=True)
+
+                 
+    params:
+        dic = ps[rp["path_built_ms"]].instance,
+        fdir = config["fp"]["PATHF"],
+        rdir = config["fp"]["PATHR"]
+    threads: 1
+    resources:
+        mem_mb=1024*80,
+        runtime=80  
+    script:
+        "create_input_data_set.py" 
+
+def get_threads(wildcards):
+    return int(wildcards["run_processes"])
+def get_runtime(wildcards):
+    return int(wildcards["run_time"])
+def get_memory(wildcards):
+    return int(wildcards["run_mem"])
+    
+rp["path_run_ms"]= {*rp["path_built_ms"],
+                    *["run_sw","run_app"]}
+rp["path_run_ms"]= set(c for c in df_params.columns if c != "run_exp_res")
+
+rule run_model:
+    input:
+        "run_model.py",
+        path_agg_local_pledges=get_path("PATHR","PATH_AGG_LOCAL_PLEDGES"),
+        
+        
+        path_years_map = get_path("PATHP","PATH_YEARS_MAP"),
+        path_built_ms = get_path("PATHF","PATH_BUILT_MS",bfn=True)
+
+        
+    output:
+        # currently assumes there is only one results file
+        path_run_ms = get_path("PATHO","PATH_RUN_MS",True)
+
+        
+        
+        #path_run_ms = (config["fp"]["PATHO"]
+        #                +f'{ps_[sorted(rp["PATH_RUN_MS".lower()])].wildcard_pattern}'
+        #                +config["fp"]["PATH_RUN_MS"]+'.csv')
+        #path_results = get_path("PATHO","PATH_RUN_MS")
+
+     
+    params:
+        #solver,modelfile,datafile,nameofrun, nprocesses, resultsdir
+        dic = ps[rp["path_run_ms"]].instance,
+        fdir = config["fp"]["PATHF"],
+        odir = config["fp"]["PATHO"]
+    benchmark:
+        get_path("PATHO","PATH_RUN_MS",True)+"benchmark.txt"
+
+    threads: get_threads
+    resources:
+        runtime=get_runtime,
+        mem_mb=get_memory
+          
+    script:
+        "run_model.py"  
+        
+      
+rp["path_resprocessed_ms"]= {*rp["path_run_ms"],
+                            *rp["path_supply_hurdle"],
+                            *["run_exp_res"]}
+rule process_results:
+    input:
+        "process_results.py",
+        path_ec_pcap = get_path("PATHR","PATH_EC_PCAP"),
+        path_supply_hurdle=get_path("PATHP","PATH_SUPPLY_HURDLE"),
+        path_set_supply=get_path("PATHR","PATH_SET_SUPPLY"),
+        path_years_map = get_path("PATHP","PATH_YEARS_MAP"),
+        path_run_ms = get_path("PATHO","PATH_RUN_MS",True)
+
+        
+    output:
+        # currently assumes there is only one results file
+        path_resprocessed_ms = get_path("PATHO","PATH_RESPROCESSED_MS",True)
+        #path_run_ms = (config["fp"]["PATHO"]
+        #                +f'{ps_[sorted(rp["PATH_RUN_MS".lower()])].wildcard_pattern}'
+        #                +config["fp"]["PATH_RUN_MS"]+'.csv')
+     
+    params:
+        #solver,modelfile,datafile,nameofrun, nprocesses, resultsdir
+        dic = ps[rp["path_resprocessed_ms"]].instance,
+        fdir = config["fp"]["PATHF"],
+        odir = config["fp"]["PATHO"]
+    threads: 1
+    resources:
+        mem_mb=1024*16, #1024*8,
+        runtime=230  #160
+          
+    script:
+        "process_results.py" 
+  
