@@ -27,7 +27,7 @@
 Contributing
 ============
 
-Welcome to ``uk-mosem`` contributor's guide.
+Welcome to ``uk-mosem`` contributor's guide. This is currently a standard guide template and might be updated in future.
 
 This document focuses on getting any potential contributor familiarized
 with the development processes, but `other kinds of contributions`_ are also

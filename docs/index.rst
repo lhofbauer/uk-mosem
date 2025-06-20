@@ -1,27 +1,13 @@
 ========
-uk-mosem
+UK-MOSEM
 ========
 
-This is the documentation of **uk-mosem**.
+This is the documentation of **UK-MOSEM**.
 
-.. note::
+UK-MOSEM is the UK Multi-scale Open Source Energy Model. It is using the `fratoo <https://github.com/lhofbauer/fratoo>`_ framework – an open-source multi-scale modelling framework based on `OSeMOSYS <http://www.osemosys.org/>`_. 
 
-    This is the main page of your project's `Sphinx`_ documentation.
-    It is formatted in `reStructuredText`_. Add additional pages
-    by creating rst-files in ``docs`` and adding them to the `toctree`_ below.
-    Use then `references`_ in order to link them from this page, e.g.
-    :ref:`authors` and :ref:`changes`.
 
-    It is also possible to refer to the documentation of other Python packages
-    with the `Python domain syntax`_. By default you can reference the
-    documentation of `Sphinx`_, `Python`_, `NumPy`_, `SciPy`_, `matplotlib`_,
-    `Pandas`_, `Scikit-Learn`_. You can add more by extending the
-    ``intersphinx_mapping`` in your Sphinx's ``conf.py``.
-
-    The pretty useful extension `autodoc`_ is activated by default and lets
-    you include documentation from docstrings. Docstrings can be written in
-    `Google style`_ (recommended!), `NumPy style`_ and `classical style`_.
-
+This documentation currently mainly includes information about each of the data processing steps part of the UK-MOSEM workflow. Additional context is planned to be added once the underlying monograph has been published.
 
 Contents
 ========
@@ -29,20 +15,25 @@ Contents
 .. toctree::
    :maxdepth: 2
 
-   Overview <readme>
+   Installation <installation>
+   Workflow steps <workflow>
    Contributions & Help <contributing>
    License <license>
    Authors <authors>
    Changelog <changelog>
-   Module Reference <api/modules>
+
+Acknowledgements
+================
+
+The initial development of fratoo was supported by the Engineering and Physical Sciences Research Council, UK, under grant EP/R513143/1.
 
 
-Indices and tables
-==================
+.. Indices and tables
+.. ==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. * :ref:`genindex`
+.. * :ref:`modindex`
+.. * :ref:`search`
 
 .. _toctree: https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html
 .. _reStructuredText: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html

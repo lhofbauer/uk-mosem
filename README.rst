@@ -30,20 +30,23 @@
 |
 
 ========
-uk-mosem
+UK-MOSEM
 ========
 
 
-    Add a short description here!
+    UK Multi-scale Open Source Energy Model
 
 
-A longer description of your project goes here...
+This repository contains the model code and documentation of UK-MOSEM.
+
+The documentation is also hosted on `ReadTheDocs <https://uk-mosem.readthedocs.io/en/latest/>`_.
+
+Setting up the UK-MOSEM model is currently not a very streamlined process and might bring up issues (which can be reported via the issue tracker).
 
 
-.. _pyscaffold-notes:
+Acknowledgements
+================
 
-Note
-====
+The initial development of UK-MOSEM was supported by the Engineering and Physical Sciences Research Council, UK, under grant EP/R513143/1.
 
-This project has been set up using PyScaffold 4.5. For details and usage
-information on PyScaffold see https://pyscaffold.org/.
+
