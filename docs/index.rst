@@ -6,8 +6,7 @@ This is the documentation of **UK-MOSEM**.
 
 UK-MOSEM is the UK Multi-scale Open Source Energy Model. It is using the `fratoo <https://github.com/lhofbauer/fratoo>`_ framework – an open-source multi-scale modelling framework based on `OSeMOSYS <http://www.osemosys.org/>`_. 
 
-
-This documentation currently mainly includes information about each of the data processing steps part of the UK-MOSEM workflow. Additional context is planned to be added once the underlying monograph has been published.
+This documentation currently mainly includes information about each of the data processing steps part of the UK-MOSEM workflow. Additional context is planned to be added once a related monograph has been published.
 
 Contents
 ========

@@ -16,9 +16,9 @@ It is also important to note that the workflow configuration levers outlined bel
 .. note sources can be found with data
 
 
-************************
-Step-by-step description
-************************
+.. ************************
+.. Step-by-step description
+.. ************************
 
 
 
