@@ -25,7 +25,7 @@ Contents
 Acknowledgements
 ================
 
-The initial development of fratoo was supported by the Engineering and Physical Sciences Research Council, UK, under grant EP/R513143/1.
+The initial development of UK-MOSEM was supported by the Engineering and Physical Sciences Research Council, UK, under grant EP/R513143/1.
 
 
 .. Indices and tables

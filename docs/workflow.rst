@@ -65,6 +65,7 @@ Main input data are:
 
 
 Configuration options are:
+
 #. Scenario assumption for the future trajectory for non-heat gas (scen_nhg)  and electricity demand (scen_nhe)  – format: [Fraction of base year value]y[Year]a[Fraction of base year value]y[Year]a [...] - the calculation will interpolate (and back/forward fill) between these values.
 #. Local emission targets set through (scen_local_gov) are used to adjust non-heat gas intensity in the respective local authorities accordingly, i.e., reaching zero in the target year.
 
@@ -106,6 +107,7 @@ Main input data are:
 #. household projections (output from previous rule)
 
 Configuration options are
+
 #. Tenure and income lever (scen_hh_disagg) – if to integrate tenure, or tenure and income in property type (and, hence, it being separately processed throughout the input data processing) – format: "-" if no disaggregation, "T" for disaggregation based on tenure, "TI|[1-9DIGITS]" for disaggregation based on tenure and income, where the [1-9DIGITS] is a number of digits that represent the deciles that income groups will be split into (e.g., 124 means 4 income groups will be represented: -1, 1-2, 2-4, 4-).
 
 
@@ -124,6 +126,7 @@ Main calculations are:
 Main assumptions are:
 
 EPC data related -
+
 #. The processing is using the last available certificate per property (even if that is then applied to a previous base year in model).
 #. Space constrained homes are assumed to be properties with less than 16 m^2 per room (calculated simply from total square meter divided by number of habitable rooms).
 #. Property types are aggregated to 4 different categories (bungalows to semi-detached based on similar NEED consumption; no data to terraced).
@@ -135,6 +138,7 @@ EPC data related -
 #. If tenure/income is integrated, LSOA income data is applied across property types and taking into account national data on income by tenure, through iterative scaling.
 
 VOA data related -
+
 #. Property types are aggregated to 4 different categories (bungalows to semi-detached based on similar NEED consumption; unknown distributed across; vans, boats, excluded)
 #. Scottish data for 2018 to 2022 are scaled 2017 data using totals (not disaggregated by property type) for 2018-2022 due to a lack of available data at the time of implementation.
 #. The average demolition rate is calculated based on the 2012-2018 period, assumed the same across LSOAs in each LA, and constant over time - if the decrease of property numbers based on the decrease of household number is larger, this number is used as demolition rate.
@@ -190,6 +194,7 @@ Main input data are:
 #. Data on domestic and non-domestic heating systems from EPC data (output from previous rule)
 
 Configuration options are:
+
 #. None
 
 Outputs are:
@@ -219,6 +224,7 @@ Main input data are:
 #. Peak heat demand/unit sized for each LSOA, property type, year
 
 Configuration options are
+
 #. None
 
 
@@ -251,6 +257,7 @@ Main input data are:
 #. EPC data on energy efficiency bands of properties in each LSOA (output from previous rule)
 
 Configuration options are:
+
 #. Scenario assumption for the future trajectory for non-heat gas (scen_nhg)  and electricity demand (scen_nhe)  – format: [Fraction of base year value]y[Year]a[Fraction of base year value]y[Year]a [...] - the calculation will interpolate (and back/forward fill) between these values.
 #. Local emission targets set through (scen_local_gov) are used to adjust non-heat gas intensity in the respective local authorities accordingly, i.e., reaching zero by the target year.
 
@@ -291,6 +298,7 @@ Main input data are:
 #. Heating technology efficiencies – if GB or MSOA calibration triggered
 
 Configuration options are:
+
 #. Parameter defining if and what calibration of demands is performed (scen_dem_calib) – syntax: "-" for none, "GB" for calibration based on ECUK data, or "MSOA" for calibration based on subnational energy consumption statistics
 
 
@@ -360,6 +368,7 @@ Main input data are:
 
 
 Configuration options are:
+
 #. None
 
 
@@ -421,8 +430,8 @@ Main input data are:
 
 
 Configuration options are:
-#. None
 
+#. None
 
 Outputs are:
 
@@ -451,9 +460,8 @@ Main input data are:
 
 #. Relevant timeseries for demands and capacity factors for power generation technologies (output from previous rule)
 
-
-
 Configuration options are:
+
 #. Aggregation approach (scen_time_agg) to define how timeseries are to be aggregated – format: NP|S where N is one or more digits of an integer defining the number of typical periods, P is either h (hour), d (day), p(day, predefined order) defining the length of the typical period, and S is one or more digits of an integer defining the number of segments within a typical period.
 
 
@@ -486,6 +494,7 @@ Main input data are:
 #. Geospatial data of LSOA boundaries
 
 Configuration options are:
+
 #. None
 
 
@@ -518,6 +527,7 @@ Main input data are:
 
 
 Configuration options are:
+
 #. None
 
 
@@ -549,6 +559,7 @@ Input data are
 
 
 Configuration options are
+
 #. None
 
 
@@ -581,6 +592,7 @@ Main input data are:
 #. LSOA class allocation (output from previous rule)
 
 Configuration options are:
+
 #. None
 
 
@@ -593,13 +605,16 @@ Outputs are:
 Main calculations for costs are:
 
 For natural gas, H2 retrofit, and district heating network –
+
 #. First the total cost for installing the respective network in the sublocal area is calculated by multiply a cost per meter length with the road length in the respective area. The road length for the gas network is scaled based on data for the current network length and residual capacity. For district heating, the building/property connection cost to all buildings is added.
 #.  To calculate the cost per GW of installed network capacity, the total cost for each network is then divided by the respective peak demand (for DH the SHW peak, for gas and H2 network, the SHW + NHG demand - taking into account the respective building heating technology efficiency for the SHW peak to get to the final energy demand peak).
 
 For electricity –
+
 #. The average reinforcement/replacement cost per kW are taken from the literature.
 
 For all –
+
 #. Annual fixed cost are calculated as 0.1% of respective capital costs.
 
 Main assumptions are:
@@ -616,6 +631,7 @@ Main calculations for efficiency are:
 #. Relative losses (1-efficiency) are calculated by dividing the total annual losses by the total annual heat demand.
 
 Main assumptions are:
+
 #. The network temperature is assumed to be 70°C with a 50°C return temperature.
 #. This means the relative efficiency/losses of a heat network in the model are independent of the operation of a heat network.
 
@@ -625,6 +641,7 @@ Main calculations for capacity factors are:
 #. For electricity this is not necessary as it is assumed all properties are connected. For gas it is not possible to calculate this with the chosen approach as the shape of the demand curve depends on the uptake of gas for heating (given there is a constant NHG demand that is added). Hence this is not implemented but has little impact as to use gas from the network in non-peak timeslice the model would need to build additional capacity that is not useful in the peak timeslice.
 
 Main assumptions are:
+
 #. 
 
 Main calculations for residual capacities are:
@@ -635,6 +652,7 @@ Main calculations for residual capacities are:
 #. Residual capacity for DH generation is calculated based on EPC data on heat supply to HIUMs and the peak as calculated for the DH network
 
 Main assumptions are:
+
 #. Residual capacity are calculate based on above until the year 2022, from when they linearly decrease (DH) or stay constant until the year when they start decreasing (EL/GA).
 #. A residual capacity for H2 retrofit is added only as a modelling approach to allow for mixing of hydrogen in the existing grid.
 #. For DH generation residual capacity, if no information given Gas CHP is assumed.
@@ -653,6 +671,7 @@ Main input data are:
 
 
 Configuration options are:
+
 #. None
 
 
@@ -692,6 +711,7 @@ Main input data are:
 #. Capacity factors for renewable technologies (output from previous rule)
 
 Configuration options are
+
 #. None ("scen_supply_imp" has been removed but is still present in some parts for potential reimplementation).
 
 
@@ -722,6 +742,7 @@ Main calculations and assumptions for the power sector:
 
 
 Main calculations and assumptions for the transmission technologies:
+
 #. Natural gas, Hydrogen, electricity, heating oil, biomass transmission are implemented as technologies that transmit the respective energy carrier from the national to the local level, with no transmission directly between local authorities possible (currently largely irrelevant given the national level supply sector).
 #. Natural gas and H2 transmission cost are calculated by multiplying a per length cost with the current network length divided by the base year total capacity.
 #. Residual electricity transmission grid is assumed to be equal to distribution grid capacity without spare capacity. Gas transmission grid is also assumed to be equal to distribution grid capacity in the base year with a small uplift to avoid any issues (capacity here is again less about what energy can be transported as it is not expected any of these grid will need to be extended, but potentially replaced). The decomissioning of the existing grid over time is set based on the literature.
@@ -764,7 +785,7 @@ Main calculations for domestic properties are:
 #. It applies a reduction based on conservation areas reducing the relevant numbers of theoretically possible measures in respective LSOAs.
 #. The actual possible number of each of the measures is loaded as national total and allocated across properties based on above calculation 
 #. The cost per measure for each property type and the savings potential for each measure and property type (taking into account loft and in-use factor), the maximal annual installations constraint, and the lifetime for each of the measures are loaded and processed.
-# Measures are then aggregated to three different efficiency packages (low, medium, high).
+#. Measures are then aggregated to three different efficiency packages (low, medium, high).
 
 
 Main assumptions for domestic properties are
@@ -805,6 +826,7 @@ Main input data are:
 #. Heat demand peaks (output from previous rule)
 
 Configuration options are:
+
 #. Scenario heat technology deployment constraint ("scen_htd_con") format: T-S-Y-L-R-N, where T is a string that is used to filter technologies the constraint applies to (e.g, "HPD" will constrain all technologies that include "HPD" – all domestic heat pumps), S is the sector (either "D" for domestic, "N" for non-domestic, or "ND" for both – this is only used to pick the annual demand if relevant for the constraint), "Y" is the type of constraint (either "ci" for capacity investment, "ct" for total capacity, or "a" for activity), "L" defines if an upper ("u") or lower ("l") is set, "R" defines the region the constrained is applied to (":*" is used for all regions, several regions can be separate by ";" to aggregate or "," for separate constraints for each region), "N", defines the actual limit in certain years in the format of [Limit]y[Year]a[Limit]y[Year]a[...], e.g., "200000y2023a200000y2050a600000y2060". For capacity constraints the number refers to the number of installations, for activity constraints to the fraction of demand.
 
 Outputs are:
@@ -841,6 +863,7 @@ Main input data are:
 #. Pellet production cost
 
 Configuration options are
+
 #. None
 
 Outputs are
@@ -873,6 +896,7 @@ Main input data are:
 #. Efficiency of waster water heat pump
 
 Configuration options are:
+
 #. None
 
 
@@ -904,6 +928,7 @@ Main input data are:
 
 
 Configuration options are:
+
 #. Switch to use or not use climate pledges ("scen_local_gov") – format: "-" for no targets, "CA" for targets clipped at 2040 and only in LAs with building-related plan, as well as no DH investments in LAs without building-related plan, "CP" for the targets as in the data, "CPS" as "CP" but additionally adjusts emission constraint to ensure freed up emission budget is not used by others.
 
 
@@ -935,6 +960,7 @@ Input data are
 
 
 Configuration options are
+
 #. Aggregation of years ("scen_year_agg") – format: '5y' for 5 year periods (except initial and final year) or '-' for no aggregation
 #. Adjustment of capital cost for scenarios ("scen_tech_cost") – format: '-' for no changes, T-Y-M-R-N, where T is a string that is used to filter technologies the adjustment applies to (e.g, "HPD" will affect all technologies that include "HPD" – all domestic heat pumps), "Y" is the type of constraint (currently only 'C' for capital cost is implemented), "M" defines if changes are addition ("A") or multiplication ("M"), "R" defines the region the adjustment is applied to (":*" is used for all regions, several regions can be separate by ";" to aggregate or "," for separate constraints for each region), "N", defines the actual adjustment value in certain years in the format of [Limit]y[Year]a[Limit]y[Year]a[...], e.g., "200000y2023a200000y2050a600000y2060".
 where T is a string to filter for the technologies the ban should be applied to, R are the geographic entities it should be applied to, and Y is the year the ban is implemented. DDHMT-C-M-:*-0.8y2015a0.8y2060  C// (Capital cost/ only imp for capital cost currently) M/A (Multiply or add) :* (currently only all regions work), years
@@ -977,6 +1003,7 @@ Main input data are:
 
 
 Configuration options are:
+
 #. "run_solver", "model_eq", "run_processes", "run_app" (see code and example run configuration file for details)
 
 
@@ -994,7 +1021,6 @@ Main assumptions are:
 #. -
 
 
-
 ------------------------------------
 Process results (process_results.py)
 ------------------------------------
@@ -1007,6 +1033,7 @@ Main input data are:
 
 
 Configuration options are:
+
 #. "run_exp_res" (see code and example run configuration file for details)
 
 
